@@ -1,5 +1,7 @@
+"use client";
+
 export default function Home() {
-  const apiUrl = process.env.API_URL;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
   if (!apiUrl) {
     throw new Error("API_URL is not defined");
