@@ -26,5 +26,7 @@ jobs:
             --function-name ${{ secrets.LAMBDA_ARN }} \
             --payload '{"AMPLIFY_BRANCH_NAME": "'"${{ github.head_ref || github.ref_name }}"'"}' \
             --cli-binary-format raw-in-base64-out \
+            --cli-read-timeout 360 \
+            --cli-connect-timeout 360 \
             response.json
           cat response.json
