@@ -1,0 +1,30 @@
+name: Deploy changes to Amplify
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  invoke-lambda:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # 🔹 REQUIRED for OIDC authentication
+      contents: read
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          # role name must match the name in the UI Construct of the CDK code
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/staging-OSDP-Prototype-UIBuildFunctionInvokerRole
+      - name: Invoke Lambda
+        run: |
+          aws lambda invoke \
+            --function-name ${{ secrets.LAMBDA_ARN }} \
+            --payload '{"AMPLIFY_BRANCH_NAME": "'"${{ github.head_ref || github.ref_name }}"'"}' \
+            --cli-binary-format raw-in-base64-out \
+            --cli-read-timeout 360 \
+            --cli-connect-timeout 360 \
+            response.json
+          cat response.json
