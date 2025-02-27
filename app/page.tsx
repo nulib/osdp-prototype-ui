@@ -1,21 +1,122 @@
 "use client";
+import { Amplify } from "aws-amplify";
+import { Authenticator } from "@aws-amplify/ui-react";
+import { useState } from "react";
+import { fetchAuthSession } from '@aws-amplify/auth';
+import "@aws-amplify/ui-react/styles.css";
 
 export default function Home() {
+  const [inputValue, setInputValue] = useState("");
+  const [apiResponse, setApiResponse] = useState(null);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID;
+  const userPoolClientId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID;
 
   if (!apiUrl) {
     throw new Error("API_URL is not defined");
   }
 
+  Amplify.configure({
+    Auth: {
+      Cognito: {
+        userPoolId,
+        userPoolClientId
+      },
+    }
+  });
+
+  async function getToken() {
+    try {
+      const session = await fetchAuthSession();
+      const accessToken = session.tokens.accessToken.toString();
+      const idToken = session.tokens.idToken.toString();
+      console.log('accessToken:', accessToken);
+      console.log('idToken:', idToken);
+      return idToken;
+    } catch (error) {
+      console.error('Error fetching auth session:', error);
+      return null;
+    }
+  }
+
+  const getApiResponse = async (user) => {
+    console.log("user", user);
+    try {
+      const token = await getToken();
+
+      if (!token) {
+        console.error("User is not properly authenticated");
+        return;
+      }
+
+      return await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ user_prompt: inputValue }),
+      })
+        .then(async (response) => {
+          const data = await response.json();
+          console.log(data);
+          setApiResponse(data);
+          return data;
+        })
+        .catch((error) => {
+          console.log("error", error);
+          return null;
+        });
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+
   return (
-    <>
-    <h1>Hello, cruel world!</h1>
-    {/* add a button click that fetches from the apiURL */}
-    <button onClick={async () => {
-      const response = await fetch(apiUrl);
-      const data = await response.json();
-      console.log(data);
-    }}>Fetch from API</button>
-    </>
+    <Authenticator
+      hideSignUp
+    >
+      {({ signOut, user }) => (
+        <main className="container">
+          <h1 className="title">Hello {user?.username}</h1>
+
+          <div className="form-group">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="Enter your question"
+              className="input-field"
+            />
+            <button
+              onClick={async () => {
+                const response = await getApiResponse(user);
+              }}
+              className="button"
+            >
+              Chat with collection
+            </button>
+          </div>
+
+          {/* Display the API response */}
+          {apiResponse && (
+            <div className="response-container">
+              <h3>Response:</h3>
+              {typeof apiResponse === 'string' ? (
+                <div>{apiResponse}</div>
+              ) : (
+                <pre className="response-content">
+                  {JSON.stringify(apiResponse, null, 2)}
+                </pre>
+              )}
+            </div>
+          )}
+
+          <button onClick={signOut} className="button">Sign out</button>
+        </main>
+      )}
+    </Authenticator>
   );
 }
