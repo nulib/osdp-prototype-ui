@@ -1,35 +1,45 @@
 "use client";
 import { Amplify } from "aws-amplify";
 import { Authenticator } from "@aws-amplify/ui-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { fetchAuthSession } from '@aws-amplify/auth';
 import "@aws-amplify/ui-react/styles.css";
 
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [apiResponse, setApiResponse] = useState(null);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID;
-  const userPoolClientId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID;
+  const [isConfigured, setIsConfigured] = useState(false);
+  const [apiUrl, setApiUrl] = useState(""); 
+  
+  useEffect(() => {
+    const apiUrlValue = process.env.NEXT_PUBLIC_API_URL;
+    const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID;
+    const userPoolClientId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID;
 
-  if (!apiUrl) {
-    throw new Error("API_URL is not defined");
-  }
-
-  Amplify.configure({
-    Auth: {
-      Cognito: {
-        userPoolId,
-        userPoolClientId
-      },
+    if (!apiUrlValue || !userPoolId || !userPoolClientId) {
+      console.error("Required environment variables are not defined");
+      return;
     }
-  });
+
+    setApiUrl(apiUrlValue);
+
+    Amplify.configure({
+      Auth: {
+        Cognito: {
+          userPoolId,
+          userPoolClientId
+        },
+      }
+    });
+    
+    setIsConfigured(true);
+  }, []);
 
   async function getToken() {
     try {
       const session = await fetchAuthSession();
-      const accessToken = session.tokens.accessToken.toString();
-      const idToken = session.tokens.idToken.toString();
+      const accessToken = session.tokens?.accessToken?.toString() || '';
+      const idToken = session.tokens?.idToken?.toString() || '';
       console.log('accessToken:', accessToken);
       console.log('idToken:', idToken);
       return idToken;
@@ -39,13 +49,17 @@ export default function Home() {
     }
   }
 
-  const getApiResponse = async (user) => {
-    console.log("user", user);
+  const getApiResponse = async () => {
     try {
       const token = await getToken();
 
       if (!token) {
         console.error("User is not properly authenticated");
+        return;
+      }
+      
+      if (!apiUrl) {
+        console.error("API URL is not defined");
         return;
       }
 
@@ -73,6 +87,9 @@ export default function Home() {
     }
   }
 
+  if (!isConfigured) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <Authenticator
@@ -92,7 +109,7 @@ export default function Home() {
             />
             <button
               onClick={async () => {
-                const response = await getApiResponse(user);
+                await getApiResponse();
               }}
               className="button"
             >
