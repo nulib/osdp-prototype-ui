@@ -71,7 +71,6 @@ export default function Home() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        credentials: 'include',
         body: JSON.stringify({ user_prompt: inputValue }),
       })
         .then(async (response) => {
