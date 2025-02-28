@@ -9,7 +9,7 @@ export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [apiResponse, setApiResponse] = useState(null);
   const [isConfigured, setIsConfigured] = useState(false);
-  const [apiUrl, setApiUrl] = useState(""); 
+  const [chatEndpoint, setChatEndpoint] = useState(""); 
   
   useEffect(() => {
     const apiUrlValue = process.env.NEXT_PUBLIC_API_URL;
@@ -21,7 +21,9 @@ export default function Home() {
       return;
     }
 
-    setApiUrl(apiUrlValue);
+    const chatEndpoint = new URL('chat', apiUrlValue).toString();
+
+    setChatEndpoint(chatEndpoint);
 
     Amplify.configure({
       Auth: {
@@ -58,17 +60,18 @@ export default function Home() {
         return;
       }
       
-      if (!apiUrl) {
-        console.error("API URL is not defined");
+      if (!chatEndpoint) {
+        console.error("Chat endpoint is not defined");
         return;
       }
 
-      return await fetch(apiUrl, {
+      return await fetch(chatEndpoint, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        credentials: 'include',
         body: JSON.stringify({ user_prompt: inputValue }),
       })
         .then(async (response) => {
