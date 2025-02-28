@@ -22,7 +22,6 @@ export default function Home() {
     }
 
     const chatEndpoint = new URL('chat', apiUrlValue).toString();
-
     setChatEndpoint(chatEndpoint);
 
     Amplify.configure({
