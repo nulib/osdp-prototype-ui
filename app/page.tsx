@@ -10,6 +10,7 @@ export default function Home() {
   const [apiResponse, setApiResponse] = useState(null);
   const [isConfigured, setIsConfigured] = useState(false);
   const [chatEndpoint, setChatEndpoint] = useState(""); 
+  const [isLoading, setIsLoading] = useState(false);
   
   useEffect(() => {
     const apiUrlValue = process.env.NEXT_PUBLIC_API_URL;
@@ -51,6 +52,8 @@ export default function Home() {
   }
 
   const getApiResponse = async () => {
+    setIsLoading(true);
+
     try {
       const token = await getToken();
 
@@ -85,6 +88,8 @@ export default function Home() {
     } catch (error) {
       console.error(error);
       return null;
+    } finally {
+      setIsLoading(false); 
     }
   }
 
@@ -118,8 +123,9 @@ export default function Home() {
                 await getApiResponse();
               }}
               className="button"
+              disabled={isLoading}
             >
-              Chat with collection
+              {isLoading ? 'Loading...' : 'Chat with collection'}
             </button>
           </div>
 
