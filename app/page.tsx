@@ -2,57 +2,90 @@
 import { Amplify } from "aws-amplify";
 import { Authenticator } from "@aws-amplify/ui-react";
 import { useState, useEffect } from "react";
-import { fetchAuthSession } from '@aws-amplify/auth';
+import { fetchAuthSession } from "@aws-amplify/auth";
+import Markdown from "react-markdown";
 import "@aws-amplify/ui-react/styles.css";
+
+interface S3Location {
+  uri: string;
+}
+
+interface Location {
+  s3Location: S3Location;
+  type: "S3";
+}
+
+interface Content {
+  /**
+   * The chunk the knowledge base used, which may or may not resemble a IIIF Manifest
+   *
+   * @remarks
+   *
+   * It will almost never be valid JSON
+   */
+  text: string;
+}
+
+interface Reference {
+  content: Content;
+  location: Location;
+}
+
+interface Response {
+  answer: string;
+  references: Reference[];
+  session_id: string;
+}
 
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
-  const [apiResponse, setApiResponse] = useState(null);
+  const [apiResponse, setApiResponse] = useState<Response | null>(null);
   const [isConfigured, setIsConfigured] = useState(false);
-  const [chatEndpoint, setChatEndpoint] = useState(""); 
-  const [isLoading, setIsLoading] = useState(false);
-  
+  const [chatEndpoint, setChatEndpoint] = useState("");
+  const [state, setState] = useState<"idle" | "loading" | "error">("idle");
+
   useEffect(() => {
     const apiUrlValue = process.env.NEXT_PUBLIC_API_URL;
     const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID;
-    const userPoolClientId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID;
+    const userPoolClientId =
+      process.env.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID;
 
     if (!apiUrlValue || !userPoolId || !userPoolClientId) {
       console.error("Required environment variables are not defined");
       return;
     }
 
-    const chatEndpoint = new URL('chat', apiUrlValue).toString();
+    const chatEndpoint = new URL("chat", apiUrlValue).toString();
     setChatEndpoint(chatEndpoint);
 
     Amplify.configure({
       Auth: {
         Cognito: {
           userPoolId,
-          userPoolClientId
+          userPoolClientId,
         },
-      }
+      },
     });
-    
+
     setIsConfigured(true);
   }, []);
 
   async function getToken() {
     try {
       const session = await fetchAuthSession();
-      const accessToken = session.tokens?.accessToken?.toString() || '';
-      const idToken = session.tokens?.idToken?.toString() || '';
-      console.log('accessToken:', accessToken);
-      console.log('idToken:', idToken);
+      const accessToken = session.tokens?.accessToken?.toString() || "";
+      const idToken = session.tokens?.idToken?.toString() || "";
+      console.log("accessToken:", accessToken);
+      console.log("idToken:", idToken);
       return idToken;
     } catch (error) {
-      console.error('Error fetching auth session:', error);
+      console.error("Error fetching auth session:", error);
       return null;
     }
   }
 
   const getApiResponse = async () => {
-    setIsLoading(true);
+    setState("loading");
 
     try {
       const token = await getToken();
@@ -61,7 +94,7 @@ export default function Home() {
         console.error("User is not properly authenticated");
         return;
       }
-      
+
       if (!chatEndpoint) {
         console.error("Chat endpoint is not defined");
         return;
@@ -79,33 +112,35 @@ export default function Home() {
           const data = await response.json();
           console.log(data);
           setApiResponse(data);
-          return data;
+          setState("idle");
         })
         .catch((error) => {
           console.log("error", error);
-          return null;
+          setState("error");
         });
     } catch (error) {
       console.error(error);
-      return null;
-    } finally {
-      setIsLoading(false); 
+      setState("error");
     }
-  }
+  };
 
   if (!isConfigured) {
-    return <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      height: '100vh' 
-    }}>Loading...</div>;
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        Loading...
+      </div>
+    );
   }
 
   return (
-    <Authenticator
-      hideSignUp
-    >
+    <Authenticator hideSignUp>
       {({ signOut, user }) => (
         <main className="container">
           <h1 className="title">Hello {user?.username}</h1>
@@ -122,28 +157,41 @@ export default function Home() {
               onClick={async () => {
                 await getApiResponse();
               }}
-              className="button"
-              disabled={isLoading}
+              className={`button ${
+                state === "loading" ? "disabled:bg-gray-400" : ""
+              }`}
+              disabled={state === "loading"}
             >
-              {isLoading ? 'Loading...' : 'Chat with collection'}
+              {state === "loading" ? "Loading..." : "Chat with collection"}
             </button>
           </div>
 
           {/* Display the API response */}
           {apiResponse && (
-            <div className="response-container">
-              <h3>Response:</h3>
-              {typeof apiResponse === 'string' ? (
-                <div>{apiResponse}</div>
-              ) : (
-                <pre className="response-content">
-                  {JSON.stringify(apiResponse, null, 2)}
-                </pre>
-              )}
+            <div className="response-container flex flex-col gap-4 mb-4 [&_ol]:list-disc [&_ol]:pl-4 [&_ul]:list-disc [&_ul]:pl-4">
+              <div className="answer">
+                <Markdown>{apiResponse.answer}</Markdown>
+              </div>
+              <div className="references">
+                <details className="border p-2 rounded bg-gray-100 border-gray-400 overflow-auto">
+                  <summary className="">References</summary>
+                  <pre className="whitespace-pre-wrap">
+                    {JSON.stringify(apiResponse.references, null, 2)}
+                  </pre>
+                </details>
+              </div>
             </div>
           )}
 
-          <button onClick={signOut} className="button">Sign out</button>
+          {state === "error" && (
+            <div className="error-message mb-4 border border-red-800 rounded p-4 bg-red-300">
+              An error occurred while fetching the response. Please try again.
+            </div>
+          )}
+
+          <button onClick={signOut} className="button">
+            Sign out
+          </button>
         </main>
       )}
     </Authenticator>
