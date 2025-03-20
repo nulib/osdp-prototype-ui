@@ -48,14 +48,6 @@ body {
   font-size: 16px;
 }
 
-.response-container {
-  margin: 20px 0;
-  padding: 15px;
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  background-color: var(--background-light);
-}
-
 .response-content {
   white-space: pre-wrap;
   max-height: 300px;
